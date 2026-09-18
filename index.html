@@ -1,59 +1,85 @@
-// スプレッドシートからデータを取得または追加・更新するGAS処理（日本語ヘッダー対応版）
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家族のお土産購入リスト</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>🎁 家族のお土産リスト</h1>
+      <button id="config-btn" class="icon-btn" title="合言葉の変更">⚙️</button>
+    </header>
 
-function doGet(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const data = sheet.getDataRange().getValues();
-  data.shift(); // 1行目（日本語ヘッダー）を取り除く
-  
-  const familyId = e.parameter.family_id;
-  
-  // 家族の合言葉（B列：家族ID）に一致するデータのみ抽出
-  const result = data
-    .filter(row => row[1] && row[1].toString() === familyId)
-    .map(row => ({
-      id: row[0],             // A列: ID
-      family_id: row[1],      // B列: 家族ID
-      recipient: row[2],      // C列: 渡す相手
-      category: row[3],       // D列: ジャンル
-      item_name: row[4],      // E列: 品物・メモ
-      is_bought: row[5] === true || row[5] === "TRUE" // F列: 購入済みフラグ
-    }));
+    <!-- 入力エリア -->
+    <section class="form-card">
+      <form id="add-form">
+        <div class="form-group">
+          <label for="recipient-select">渡す相手</label>
+          <select id="recipient-select">
+            <option value="職場">職場</option>
+            <option value="親戚">親戚</option>
+            <option value="友人">友人</option>
+            <option value="自分・家族">自分・家族</option>
+            <option value="__NEW__">＋ 新しく追加する...</option>
+          </select>
+          <input type="text" id="recipient-custom" class="mt-2 hidden" placeholder="相手を入力（例: ○○さん）">
+        </div>
 
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+        <div class="form-group">
+          <label for="category-select">ジャンル</label>
+          <select id="category-select">
+            <option value="お菓子">お菓子</option>
+            <option value="雑貨・キーホルダー">雑貨・キーホルダー</option>
+            <option value="コスメ・理美容">コスメ・理美容</option>
+            <option value="食品・調味料">食品・調味料</option>
+            <option value="地酒・飲み物">地酒・飲み物</option>
+            <option value="__NEW__">＋ 新しく追加する...</option>
+          </select>
+          <input type="text" id="category-custom" class="mt-2 hidden" placeholder="ジャンルを入力">
+        </div>
 
-function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const params = JSON.parse(e.postData.contents);
-  const action = params.action;
+        <div class="form-group">
+          <label for="item-name-input">品物・メモ</label>
+          <input type="text" id="item-name-input" placeholder="例: ○○煎餅 12個入り" required>
+        </div>
 
-  if (action === "add") {
-    // 新規お土産の追加
-    const newId = new Date().getTime().toString(); // 簡易的なユニークID
-    sheet.appendRow([
-      newId,
-      params.family_id,
-      params.recipient,
-      params.category,
-      params.item_name,
-      false
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", id: newId }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } 
-  
-  else if (action === "toggle") {
-    // 購入状態（購入済み/未購入）の切り替え
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0].toString() === params.id.toString()) {
-        const currentStatus = data[i][5];
-        sheet.getRange(i + 1, 6).setValue(!currentStatus);
-        break;
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+        <button type="submit" class="primary-btn">リストに追加する</button>
+      </form>
+    </section>
+
+    <!-- リスト表示エリア -->
+    <section class="list-section">
+      <div class="section-header">
+        <h2>買い物リスト</h2>
+        <button id="refresh-btn" class="refresh-btn">🔄 更新</button>
+      </div>
+
+      <div id="loading" class="loading-overlay hidden">
+        <div class="spinner"></div>
+      </div>
+
+      <ul id="souvenir-list" class="souvenir-list">
+        <!-- JSでここに動的生成されます -->
+      </ul>
+    </section>
+  </div>
+
+  <!-- 初回・合言葉設定用モーダル -->
+  <div id="family-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <h2>家族の合言葉を設定</h2>
+      <p>家族で共有する合言葉（ID）を入力してください。同じ合言葉を入れるとデータを共有できます。</p>
+      <input type="text" id="family-id-input" placeholder="例: tanaka2026">
+      <button id="save-family-btn" class="primary-btn mt-2">設定してスタート</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
