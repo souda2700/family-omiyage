@@ -19,6 +19,19 @@
     <!-- 入力エリア -->
     <section class="form-card">
       <form id="add-form">
+        <!-- 誰が（購入者）を一番上に配置 -->
+        <div class="form-group">
+          <label for="buyer-select">誰が買う・入力者</label>
+          <select id="buyer-select">
+            <option value="共有">共有</option>
+            <option value="父">父</option>
+            <option value="母">母</option>
+            <option value="子">子</option>
+            <option value="__NEW__">＋ 新しく追加する...</option>
+          </select>
+          <input type="text" id="buyer-custom" class="mt-2 hidden" placeholder="名前を入力">
+        </div>
+
         <div class="form-group">
           <label for="recipient-select">渡す相手</label>
           <select id="recipient-select">
@@ -45,8 +58,8 @@
         </div>
 
         <div class="form-group">
-          <label for="item-name-input">品物・メモ</label>
-          <input type="text" id="item-name-input" placeholder="例: ○○煎餅 12個入り" required>
+          <label for="item-name-input">品物・メモ（空欄可）</label>
+          <input type="text" id="item-name-input" placeholder="例: ○○煎餅 12個入り">
         </div>
 
         <button type="submit" class="primary-btn">リストに追加する</button>

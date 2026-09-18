@@ -1,5 +1,5 @@
 // Google Apps Script (GAS) のWebアプリURLをここに設定
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzWjQ8m4Evo7mOW8AVfJo5GiwQQkLqLEGeEXkMpA0eOHlsodwhJBr2H1LYJ_cjbPvvL/exec";
+const GAS_API_URL = "ここに取得したGASのWebアプリURLを貼り付け";
 
 // サービスワーカーの登録（PWA化）
 if ("serviceWorker" in navigator) {
@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const configBtn = document.getElementById("config-btn");
 
   const addForm = document.getElementById("add-form");
+  const buyerSelect = document.getElementById("buyer-select");
+  const buyerCustom = document.getElementById("buyer-custom");
   const recipientSelect = document.getElementById("recipient-select");
   const recipientCustom = document.getElementById("recipient-custom");
   const categorySelect = document.getElementById("category-select");
@@ -24,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const refreshBtn = document.getElementById("refresh-btn");
   const loading = document.getElementById("loading");
 
-  // 初回起動チェック（合言葉の記憶）
+  // 初回起動チェック
   let familyId = localStorage.getItem("family_id");
   if (!familyId) {
     familyModal.style.display = "flex";
@@ -43,36 +45,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ギアアイコンで合言葉を変更
   configBtn.addEventListener("click", () => {
     familyIdInput.value = familyId || "";
     familyModal.style.display = "flex";
   });
 
-  // プルダウン「＋ 新しく追加する...」の表示切り替え制御
-  recipientSelect.addEventListener("change", (e) => {
-    if (e.target.value === "__NEW__") {
-      recipientCustom.classList.remove("hidden");
-      recipientCustom.required = true;
-      recipientCustom.focus();
-    } else {
-      recipientCustom.classList.add("hidden");
-      recipientCustom.required = false;
-      recipientCustom.value = "";
-    }
-  });
+  // 自由入力の切り替え制御
+  setupCustomSelect(buyerSelect, buyerCustom);
+  setupCustomSelect(recipientSelect, recipientCustom);
+  setupCustomSelect(categorySelect, categoryCustom);
 
-  categorySelect.addEventListener("change", (e) => {
-    if (e.target.value === "__NEW__") {
-      categoryCustom.classList.remove("hidden");
-      categoryCustom.required = true;
-      categoryCustom.focus();
-    } else {
-      categoryCustom.classList.add("hidden");
-      categoryCustom.required = false;
-      categoryCustom.value = "";
-    }
-  });
+  function setupCustomSelect(selectEl, customInputEl) {
+    selectEl.addEventListener("change", (e) => {
+      if (e.target.value === "__NEW__") {
+        customInputEl.classList.remove("hidden");
+        customInputEl.required = true;
+        customInputEl.focus();
+      } else {
+        customInputEl.classList.add("hidden");
+        customInputEl.required = false;
+        customInputEl.value = "";
+      }
+    });
+  }
 
   // リスト取得処理
   function fetchList() {
@@ -82,15 +77,12 @@ document.addEventListener("DOMContentLoaded", () => {
       .then((res) => res.json())
       .then((data) => {
         renderList(data);
-        showLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
-        showLoading(false);
-      });
+      .catch((err) => console.error(err))
+      .finally(() => showLoading(false));
   }
 
-  // リスト描画
+  // リスト描画（「購入者」タグも表示）
   function renderList(items) {
     souvenirList.innerHTML = "";
     if (items.length === 0) {
@@ -102,18 +94,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const li = document.createElement("li");
       li.className = `list-item ${item.is_bought ? "bought" : ""}`;
 
+      const buyerText = item.buyer ? `👤 ${escapeHtml(item.buyer)}` : "";
+
       li.innerHTML = `
         <input type="checkbox" ${item.is_bought ? "checked" : ""} data-id="${item.id}">
         <div class="item-details">
           <div class="item-tags">
+            ${buyerText ? `<span class="tag tag-buyer">${buyerText}</span>` : ""}
             <span class="tag tag-recipient">${escapeHtml(item.recipient)}</span>
             <span class="tag tag-category">${escapeHtml(item.category)}</span>
           </div>
-          <div class="item-title">${escapeHtml(item.item_name)}</div>
+          <div class="item-title">${escapeHtml(item.item_name || "(指定なし)")}</div>
         </div>
       `;
 
-      // チェックボックス切り替え
       const checkbox = li.querySelector('input[type="checkbox"]');
       checkbox.addEventListener("change", () => {
         toggleBought(item.id);
@@ -127,17 +121,19 @@ document.addEventListener("DOMContentLoaded", () => {
   addForm.addEventListener("submit", (e) => {
     e.preventDefault();
 
+    const buyer = buyerSelect.value === "__NEW__" ? buyerCustom.value.trim() : buyerSelect.value;
     const recipient = recipientSelect.value === "__NEW__" ? recipientCustom.value.trim() : recipientSelect.value;
     const category = categorySelect.value === "__NEW__" ? categoryCustom.value.trim() : categorySelect.value;
     const itemName = itemNameInput.value.trim();
 
-    if (!recipient || !category || !itemName) return;
+    if (!buyer || !recipient || !category) return;
 
     showLoading(true);
 
     const payload = {
       action: "add",
       family_id: familyId,
+      buyer: buyer,
       recipient: recipient,
       category: category,
       item_name: itemName
@@ -149,15 +145,14 @@ document.addEventListener("DOMContentLoaded", () => {
     })
       .then((res) => res.json())
       .then(() => {
-        // フォームリセット
         itemNameInput.value = "";
-        recipientSelect.value = "職場";
-        categorySelect.value = "お菓子";
-        recipientCustom.classList.add("hidden");
-        categoryCustom.classList.add("hidden");
-        recipientCustom.value = "";
-        categoryCustom.value = "";
+        
+        // 自由入力欄だった場合はリセット
+        resetCustomSelect(buyerSelect, buyerCustom, "共有");
+        resetCustomSelect(recipientSelect, recipientCustom, "職場");
+        resetCustomSelect(categorySelect, categoryCustom, "お菓子");
 
+        itemNameInput.focus();
         fetchList();
       })
       .catch((err) => {
@@ -166,22 +161,22 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 
-  // 購入フラグ切り替え
+  function resetCustomSelect(selectEl, customInputEl, defaultValue) {
+    if (selectEl.value === "__NEW__") {
+      selectEl.value = defaultValue;
+      customInputEl.classList.add("hidden");
+      customInputEl.value = "";
+    }
+  }
+
   function toggleBought(id) {
     showLoading(true);
-    const payload = {
-      action: "toggle",
-      id: id
-    };
-
     fetch(GAS_API_URL, {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ action: "toggle", id: id })
     })
       .then((res) => res.json())
-      .then(() => {
-        fetchList();
-      })
+      .then(() => fetchList())
       .catch((err) => {
         console.error(err);
         showLoading(false);
@@ -191,11 +186,8 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshBtn.addEventListener("click", fetchList);
 
   function showLoading(show) {
-    if (show) {
-      loading.classList.remove("hidden");
-    } else {
-      loading.classList.add("hidden");
-    }
+    if (show) loading.classList.remove("hidden");
+    else loading.classList.add("hidden");
   }
 
   function escapeHtml(str) {
