@@ -1,5 +1,5 @@
 // Google Apps Script (GAS) のWebアプリURLをここに設定
-const GAS_API_URL = "ここに取得したGASのWebアプリURLを貼り付け";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwSfezKSKCXM-3g9qHBmyD5H66Km1KRabsMMqX9vLe_Fv9rmiWg1DVQreQTIgo5mGqU/exec";
 
 // サービスワーカーの登録（PWA化）
 if ("serviceWorker" in navigator) {
